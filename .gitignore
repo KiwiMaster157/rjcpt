@@ -39,3 +39,13 @@
 
 # debug information files
 *.dwo
+
+# Editor artifacts
+
+.vscode/
+.vs/
+
+# CMake artifacts
+
+BUILD/
+INSTALL/
