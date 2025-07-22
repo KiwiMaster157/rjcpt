@@ -96,13 +96,13 @@ namespace rjcpt
    //! ParseNodes are nodes in a parse tree ordered in postfix notation.
    //! This parse tree is based entirely on the input tokens;
    //! it does not handle symbol lookup to short-circuiting logic.
-   //! Similar to Tokens, ParseNodes store the start index and length
-   //! of the substring they're generated from instead of raw character data.
+   //! ParseNodes store the index of the Token they come from.
+   //! If they come from more than one token, stores both.
    struct ParseNode
    {
-      ParseNodeType mType       = ParseNodeType::cMAX_PARSE_NODE;
-      std::uint32_t mStartIndex = 0;
-      std::uint32_t mLength     = 0;
-      std::uint32_t mAuxData    = 0;
+      ParseNodeType mType            = ParseNodeType::cMAX_PARSE_NODE;
+      std::uint32_t mStartTokenIndex = 0;
+      std::uint32_t mStopTokenIndex  = 0;
+      std::uint32_t mAuxData         = 0;
    };
 }

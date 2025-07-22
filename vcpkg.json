@@ -1,0 +1,16 @@
+{
+  "dependencies": [
+    {
+      "name": "qtbase",
+      "features": [
+        "gui"
+      ]
+    },
+    {
+      "name": "gtest",
+      "features": [
+        "cxx17"
+      ]
+    }
+  ]
+}

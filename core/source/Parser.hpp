@@ -8,6 +8,8 @@
 #include "ParseNode.hpp"
 #include "Token.hpp"
 
+#include "rjcpt_core_export.h"
+
 namespace rjcpt
 {
    // Functions the detail namespace are deemed complicated enough to warrant unit testing.
@@ -22,7 +24,7 @@ namespace rjcpt
 
       // Creates a ParseNode from aToken and the top of the operator stack.
       // May return a node with a proper ParseNodeType, or one of the pseudo-types above.
-      ParseNode MakeParseNode(const Token& aToken, ParseNodeType aTopOperator);
+      RJCPT_CORE_EXPORT ParseNode MakeParseNode(const Token& aToken, ParseNodeType aTopOperator);
 
       enum class PrecedesResult
       {
@@ -35,9 +37,9 @@ namespace rjcpt
       // Returns the precedence for operators aLeft and aRight.
       // For example, multiplication precedes addition because it comes first in order-of-operations.
       // If two operations are tied, returns true if the operation is left-associative.
-      PrecedesResult Precedes(ParseNodeType aLeft, ParseNodeType aRight);
+      RJCPT_CORE_EXPORT PrecedesResult Precedes(ParseNodeType aLeft, ParseNodeType aRight);
    }
 
    using ParseResult = std::expected<std::vector<ParseNode>, std::string>;
-   ParseResult ParseTokens(std::string_view aExpression, const std::vector<Token>& aTokens);
+   RJCPT_CORE_EXPORT ParseResult ParseTokens(std::string_view aExpression, const std::vector<Token>& aTokens);
 }

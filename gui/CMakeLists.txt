@@ -1,11 +1,13 @@
-file(GLOB gui_SRCS "source/*.cpp")
-file(GLOB gui_HDRS "source/*.hpp")
+file(GLOB rjcpt_gui_SRCS "source/*.cpp")
+file(GLOB rjcpt_gui_HDRS "source/*.hpp")
 
-add_library(gui SHARED
-   ${gui_SRCS}
-   ${gui_HDRS})
+find_package(Qt6 COMPONENTS Widgets REQUIRED)
 
-target_include_directories(gui PUBLIC source)
-target_link_libraries(gui PUBLIC core Qt::Qt6)
+add_library(rjcpt_gui SHARED
+   ${rjcpt_gui_SRCS}
+   ${rjcpt_gui_HDRS})
+
+target_include_directories(rjcpt_gui PUBLIC source)
+target_link_libraries(rjcpt_gui PUBLIC rjcpt_core Qt6::Widgets)
 
 add_subdirectory(test)
