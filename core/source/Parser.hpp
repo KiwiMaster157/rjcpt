@@ -24,7 +24,7 @@ namespace rjcpt
 
       // Creates a ParseNode from aToken and the top of the operator stack.
       // May return a node with a proper ParseNodeType, or one of the pseudo-types above.
-      RJCPT_CORE_EXPORT ParseNode MakeParseNode(const Token& aToken, ParseNodeType aTopOperator);
+      RJCPT_CORE_EXPORT ParseNodeType MakeParseNode(TokenType aToken, ParseNodeType aTopOperator);
 
       enum class PrecedesResult
       {

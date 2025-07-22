@@ -1,5 +1,10 @@
 #include "Parser.hpp"
 
+rjcpt::ParseNodeType rjcpt::detail::MakeParseNode(TokenType aToken, ParseNodeType aTopOperator)
+{
+   return rjcpt::ParseNodeType::cERROR_INVALID_TOKEN;
+}
+
 rjcpt::ParseResult rjcpt::ParseTokens(std::string_view aExpression, const std::vector<Token>& aTokens)
 {
    if (aTokens.empty())
@@ -18,8 +23,8 @@ rjcpt::ParseResult rjcpt::ParseTokens(std::string_view aExpression, const std::v
    {
       const Token& t = aTokens[i];
       const ParseNodeType topType = operatorStack.empty() ? ParseNodeType::cMAX_PARSE_NODE : operatorStack.back().mType;
-      ParseNode node = detail::MakeParseNode(t, topType);
-      switch (node.mType)
+      ParseNodeType node = detail::MakeParseNode(t.mType, topType);
+      switch (node)
       {
       case ParseNodeType::Finished:
          if (i + 1 == aTokens.size())
@@ -41,7 +46,8 @@ rjcpt::ParseResult rjcpt::ParseTokens(std::string_view aExpression, const std::v
          // TODO...
          break;
       default:
-         
+         // TODO...
+         break;
       }
    }
 

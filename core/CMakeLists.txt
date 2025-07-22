@@ -6,6 +6,6 @@ add_library(rjcpt_core SHARED
    ${rjcpt_core_HDRS})
 
 generate_export_header(rjcpt_core)
-target_include_directories(rjcpt_core PUBLIC source)
+target_include_directories(rjcpt_core PUBLIC source ${CMAKE_CURRENT_BINARY_DIR})
 
 add_subdirectory(test)

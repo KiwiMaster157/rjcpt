@@ -4,42 +4,42 @@
 
 namespace
 {
-   constexpr bool IsSpace(char aCharacter)
+   bool IsSpace(char aCharacter)
    {
       return std::isspace(static_cast<unsigned char>(aCharacter));
    }
 
-   constexpr bool IsDigit(char aCharacter)
+   bool IsDigit(char aCharacter)
    {
       return std::isdigit(static_cast<unsigned char>(aCharacter));
    }
 
-   constexpr bool IsNumberBegin(char aCharacter)
+   bool IsNumberBegin(char aCharacter)
    {
       return IsDigit(aCharacter) || aCharacter == '.';
    }
 
-   constexpr bool IsIdentifierAny(char aCharacter)
+   bool IsIdentifierAny(char aCharacter)
    {
       return std::isalpha(static_cast<unsigned char>(aCharacter)) || aCharacter == '_' || aCharacter == '%';
    }
 
-   constexpr bool IsIdentifierBegin(char aCharacter)
+   bool IsIdentifierBegin(char aCharacter)
    {
       return IsIdentifierAny(aCharacter) || aCharacter == '%';
    }
 
-   constexpr bool IsIdentifierContinue(char aCharacter)
+   bool IsIdentifierContinue(char aCharacter)
    {
       return IsIdentifierAny(aCharacter) || IsNumberBegin(aCharacter);
    }
 
-   constexpr char NextChar(std::string_view aExpression, std::uint32_t aIndex)
+   char NextChar(std::string_view aExpression, std::uint32_t aIndex)
    {
       return (aIndex + 1 >= aExpression.size()) ? '\0' : aExpression[aIndex + 1];
    }
 
-   constexpr rjcpt::TokenType GetWordType(std::string_view aWord)
+   rjcpt::TokenType GetWordType(std::string_view aWord)
    {
       using TT = rjcpt::TokenType;
       if (aWord == "and")
@@ -66,7 +66,7 @@ namespace
    }
 
    template<bool IsWordChar(char)>
-   constexpr std::uint32_t FindWordEnd(std::string_view aExpression, std::uint32_t aStart)
+   std::uint32_t FindWordEnd(std::string_view aExpression, std::uint32_t aStart)
    {
       for (std::uint32_t i = aStart; i < aExpression.size(); i++)
       {

@@ -1,4 +1,4 @@
 add_executable(rjcpt-exec
    source/Main.cpp)
 
-target_link_libraries(rjcpt-exec PRIVATE core)
+target_link_libraries(rjcpt-exec PRIVATE rjcpt_core)
