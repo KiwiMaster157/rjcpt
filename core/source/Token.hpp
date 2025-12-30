@@ -7,7 +7,7 @@ namespace rjcpt
    enum class TokenType
    {
       // Special tokens
-      EndOfData,
+      EndOfData = 0,
       Error,
       Number,
       Identifier,
@@ -17,16 +17,18 @@ namespace rjcpt
       Hyphen,
       Asterisk,
       Slash,
+      Caret,
       Comma,
+      Colon,
       DollarSign,
       
       // Grouping tokens
       LeftParenthesis,
       RightParenthesis,
-
-      // Function call
       LeftBracket,
       RightBracket,
+      LeftBrace,
+      RightBrace,
       
       // Comparison tokens
       Equals,
@@ -47,6 +49,7 @@ namespace rjcpt
       // Useful for sizing static arrays.
       cMAX_TOKEN
    };
+   inline constexpr int cNUM_TOKEN_TYPES = static_cast<int>(TokenType::cMAX_TOKEN);
 
    //! A Token is a sequence of characters that represent an indivisible logical unit in an expression.
    //! Rather than storing the characters themselves, the Token type stores the start index and length of the substring.
