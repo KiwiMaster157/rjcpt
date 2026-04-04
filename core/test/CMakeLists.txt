@@ -1,6 +1,12 @@
-file(GLOB rjcpt_core_test_SRCS "*.cpp")
+set(rjcpt_core_test_SRCS
+   test_grammar.cpp
+   test_lexer.cpp
+   test_lexicon_compiler.cpp
+   )
 
-add_executable(rjcpt_core_test ${rjcpt_core_test_SRCS})
+add_executable(rjcpt_core_test
+   main.cpp
+   ${rjcpt_core_test_SRCS})
 
 find_package(GTest REQUIRED)
 

@@ -18,10 +18,10 @@ rjcpt::CompiledGrammar rjcpt::CompileGrammar(const GrammarLocator& aLocator, std
       if (word.ends_with('='))
       {
          // Begin new rule.
-         auto& rule  = retval.mRules.emplace_back();
-         rule.mName  = word.substr(0, word.size() - 1);
+         auto& rule = retval.mRules.emplace_back();
+         rule.mName = word.substr(0, word.size() - 1);
          rule.mBegin = static_cast<std::uint32_t>(retval.mNodes.size());
-         rule.mEnd   = rule.mBegin;
+         rule.mEnd = rule.mBegin;
       }
       else if (retval.mRules.empty())
       {
@@ -30,10 +30,10 @@ rjcpt::CompiledGrammar rjcpt::CompileGrammar(const GrammarLocator& aLocator, std
       else if (word == "|")
       {
          auto  alternateOf = retval.mRules.back();
-         auto& rule        = retval.mRules.emplace_back();
-         rule.mName        = alternateOf.mName;
-         rule.mBegin       = alternateOf.mEnd;
-         rule.mEnd         = rule.mBegin;
+         auto& rule = retval.mRules.emplace_back();
+         rule.mName = alternateOf.mName;
+         rule.mBegin = alternateOf.mEnd;
+         rule.mEnd = rule.mBegin;
       }
       else
       {
@@ -143,9 +143,9 @@ void rjcpt::grammar_util::SetNonTerminalIndices(CompiledGrammar& aGrammar)
          {
             throw std::runtime_error("Cannot find rule: " + node.RawText().str());
          }
-         
+
          node.SetNonTerminal(static_cast<std::uint16_t>(rules.begin() - begin),
-                             static_cast<std::uint16_t>(rules.end() - begin));
+            static_cast<std::uint16_t>(rules.end() - begin));
       }
    }
 }

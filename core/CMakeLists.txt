@@ -1,7 +1,19 @@
-file(GLOB rjcpt_core_SRCS "source/*.cpp")
-file(GLOB rjcpt_core_HDRS "source/*.hpp")
+set(rjcpt_core_SRCS
+   source/Lexer.cpp
+   source/Lexicon.cpp
+   source/LexiconCompiler.cpp
+   )
 
-add_library(rjcpt_core SHARED
+set(rjcpt_core_HDRS
+   source/FlatMap.hpp
+   source/Lexer.hpp
+   source/Lexicon.hpp
+   source/LexiconCompiler.hpp
+   source/SmallString.hpp
+   source/Stack.hpp
+   )
+
+add_library(rjcpt_core STATIC
    ${rjcpt_core_SRCS}
    ${rjcpt_core_HDRS})
 

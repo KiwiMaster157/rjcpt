@@ -34,6 +34,7 @@ namespace rjcpt
       Subtraction,    // '-'
       Multiplication, // '*'
       Division,       // '/'
+      Exponent,       // '^'
 
       // Concatenation is a form of multiplication which occurs when there is
       // no operator separating two value-yielding subexpressions.
@@ -50,21 +51,16 @@ namespace rjcpt
       // Similar comparison operators can chain.
       // E.g. "a < b < c" is equivalent to "(a < b) and (b < c)", except that b is only evaluated once.
       // Pop the top two values from the stack, push the second arg.
-      // The result is combined with the current value in a separate 'comparison results' stack.
+      // The pushed value caries a boolean flag indicating the result of the comparison.
       CompareEqual,
       CompareNotEqual,
       CompareLessThan,
       CompareLessOrEqual,
-      CompareGreateThan,
+      CompareGreaterThan,
       CompareGreaterOrEqual,
-      // Begins a chain of comparisons, just before the first comparison.
-      // Push 'true' to the 'comparison results' stack.
-      CompareBegin,
-      // Ends a chain of comparisons.
-      // Pop the top value from the stack.
-      // Then, push the top value of the 'comparison results' stack onto the evaluation stack.
-      // Then, pop the top value of the 'comparison results' stack.
-      CompareEnd,
+      // Implicitly added at the end of a chain of comparisons.
+      // Pop the top value from the stack, push its boolean flag as a new value.
+      DecayToBool,
 
       // The value stored in the node's mAuxData member is the number of arguments.
       // Pop the invocable from the top of the execution stack.
@@ -100,9 +96,8 @@ namespace rjcpt
    //! If they come from more than one token, stores both.
    struct ParseNode
    {
-      ParseNodeType mType            = ParseNodeType::cMAX_PARSE_NODE;
-      std::uint32_t mStartTokenIndex = 0;
-      std::uint32_t mStopTokenIndex  = 0;
-      std::uint32_t mAuxData         = 0;
+      ParseNodeType mType       = ParseNodeType::cMAX_PARSE_NODE;
+      std::uint32_t mTokenIndex = 0;
+      std::uint32_t mAuxData    = 0;
    };
 }
