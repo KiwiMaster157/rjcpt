@@ -112,3 +112,15 @@ rjcpt::lex::Lexicon::GetRule(std::size_t aIndex) const
       throw std::runtime_error("Lexicon rule invalid type.");
    }
 }
+
+std::optional<std::uint32_t> rjcpt::lex::Lexicon::FindTokenType(name_t aName) const
+{
+   for (std::uint32_t i = 0; i < mTokenTypes.size(); i++)
+   {
+      if (mTokenTypes[i].mName == aName)
+      {
+         return i;
+      }
+   }
+   return std::nullopt;
+}

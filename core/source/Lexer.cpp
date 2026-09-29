@@ -10,7 +10,7 @@ rjcpt::lex::LexResult rjcpt::lex::Lexer::LexInput(const Lexicon& aLexicon,
 {
    LexResult retval;
    Lexer lexer{ &aLexicon, aString };
-   Token t;
+   LexToken t;
    while (lexer.ReadToken(t, aOption))
    {
       retval.mTokens.push_back(t);
@@ -25,7 +25,7 @@ rjcpt::lex::LexResult rjcpt::lex::Lexer::LexInput(const Lexicon& aLexicon,
    return retval;
 }
 
-bool rjcpt::lex::Lexer::ReadToken(Token& aOut, Option aOption)
+bool rjcpt::lex::Lexer::ReadToken(LexToken& aOut, Option aOption)
 {
 start:
    if (ReadTokenP(aOut))
@@ -40,7 +40,7 @@ start:
    return false;
 }
 
-bool rjcpt::lex::Lexer::ReadTokenP(Token& aOut)
+bool rjcpt::lex::Lexer::ReadTokenP(LexToken& aOut)
 {
    std::string_view text = mInput.substr(mPosition);
    std::uint32_t maxLength = 0;
@@ -85,7 +85,7 @@ rjcpt::lex::Lexer::EvaluateRule(const SequenceRule& aRule,
       auto temp = EvaluateRuleP(aRule, aInput);
       if (temp)
       {
-         std::uint32_t i = *temp;
+         std::uint32_t i = 0;
          while (temp)
          {
             i += *temp;
@@ -111,8 +111,8 @@ rjcpt::lex::Lexer::EvaluateSequence(const Sequence& aSequence,
    std::uint32_t charsRead = 0;
    for (std::uint32_t i = 0; i < aSequence.mSize; i++)
    {
-      const auto count =
-         EvaluateRule(mLexicon.mRules[i], aInput.substr(charsRead));
+      const auto& rule  = mLexicon.mRules[aSequence.mBegin + i];
+      const auto  count = EvaluateRule(rule, aInput.substr(charsRead));
       if (!count.has_value())
       {
          return std::nullopt;
@@ -147,7 +147,7 @@ rjcpt::lex::Lexer::EvaluateRuleP(const SequenceRule& aRule,
    }
 }
 
-bool rjcpt::lex::Lexer::ExtractToken(Token& aOut, std::uint32_t aKind,
+bool rjcpt::lex::Lexer::ExtractToken(LexToken& aOut, std::uint32_t aKind,
                                      std::uint32_t aSize)
 {
    const std::uint32_t end = mPosition + aSize;

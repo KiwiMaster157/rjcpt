@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?> 
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+   <Type Name="rjcpt::SmallString&lt;*&gt;">
+      <DisplayString>{mData._Elems,s}</DisplayString>
+      <Expand>
+         <Item Name="[size]">$T1</Item>
+         <Item Name="[data]">mData._Elems,[$T1]</Item>
+      </Expand>
+   </Type>
+</AutoVisualizer>

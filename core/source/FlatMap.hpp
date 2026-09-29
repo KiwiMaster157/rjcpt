@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <optional>
+#include <stdexcept>
 #include <vector>
 
 namespace rjcpt
@@ -80,13 +81,13 @@ public:
    {
       assert_sorted("contains() called on unsorted FlatMap");
       auto it = std::ranges::lower_bound(mData, aKey, Compare(), projection());
-      return it != mData.end();
+      return it != mData.end() && it->first == aKey;
    }
    std::optional<std::size_t> find_index(const Key& aKey) const
    {
       assert_sorted("contains() called on unsorted FlatMap");
       auto it = std::ranges::lower_bound(mData, aKey, Compare(), projection());
-      if (it != mData.end())
+      if (it != mData.end() && it->first == aKey)
       {
          return it - mData.begin();
       }
@@ -95,12 +96,14 @@ public:
    iterator find(const Key& aKey)
    {
       assert_sorted("find() called on unsorted FlatMap");
-      return std::ranges::lower_bound(mData, aKey, Compare(), projection());
+      auto it = std::ranges::lower_bound(mData, aKey, Compare(), projection());
+      return (it != mData.end() && it->first == aKey) ? it : mData.end();
    }
    const_iterator find(const Key& aKey) const
    {
       assert_sorted("find() called on unsorted FlatMap");
-      return std::ranges::lower_bound(mData, aKey, Compare(), projection());
+      auto it = std::ranges::lower_bound(mData, aKey, Compare(), projection());
+      return (it != mData.end() && it->first == aKey) ? it : mData.end();
    }
    subrange equal_range(const Key& aKey)
    {
@@ -131,7 +134,7 @@ public:
 
    void sort()
    {
-      std::ranges::stable_sort(mData, Compare());
+      std::ranges::stable_sort(mData, Compare(), projection());
       mSortedUntil = mData.size();
    }
 
@@ -142,6 +145,23 @@ public:
    value_type& emplace(const Key& aKey, Value&& aValue)
    {
       return mData.emplace_back(aKey, std::move(aValue));
+   }
+
+   value_type& emplace_sort(const Key& aKey, const Value& aValue)
+   {
+      assert_sorted("emplace_sort() called on unsorted FlatMap");
+      auto it = std::ranges::lower_bound(mData, aKey, Compare(), projection());
+      auto it2 = mData.emplace(it, aKey, aValue);
+      mSortedUntil = mData.size();
+      return *it2;
+   }
+   value_type& emplace_sort(const Key& aKey, Value&& aValue)
+   {
+      assert_sorted("emplace_sort() called on unsorted FlatMap");
+      auto it = std::ranges::lower_bound(mData, aKey, Compare(), projection());
+      auto it2 = mData.emplace(it, aKey, std::move(aValue));
+      mSortedUntil = mData.size();
+      return *it2;
    }
 
    void clear()

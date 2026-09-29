@@ -204,14 +204,30 @@ TEST(LexiconCompiler, EmptyQuantity) {
 
 TEST(LexiconCompiler, HexQuantityEquivalent) {
   auto result = rjcpt::lex::CompileLexicon("abc %2b"); // %2b is the "+" character
-  EXPECT_TRUE(result.has_value());
-  // TODO: Test contents
+  ASSERT_TRUE(result.has_value());
+  ASSERT_EQ(result->mTokenTypes.size(), 1);
+  const auto& tt = result->mTokenTypes[0];
+  EXPECT_EQ(tt.mName, "abc");
+  EXPECT_EQ(tt.mSize, 1);
+  using Quantity = rjcpt::lex::SequenceRule::Quantity;
+  const auto& r = result->mRules[tt.mBegin];
+  EXPECT_EQ(r.mQuantity, Quantity::Once);
+  EXPECT_EQ(r.mType, rjcpt::lex::SequenceRule::Type::RawCharacters);
+  EXPECT_EQ(std::string_view(result->mCharData.c_str() + r.mData, r.mSize), "+");
 }
 
 TEST(LexiconCompiler, HexQuantity) {
   auto result = rjcpt::lex::CompileLexicon("abc %20*");
-  EXPECT_TRUE(result.has_value());
-  // TODO: Test contents
+  ASSERT_TRUE(result.has_value());
+  ASSERT_EQ(result->mTokenTypes.size(), 1);
+  const auto& tt = result->mTokenTypes[0];
+  EXPECT_EQ(tt.mName, "abc");
+  EXPECT_EQ(tt.mSize, 1);
+  using Quantity = rjcpt::lex::SequenceRule::Quantity;
+  const auto& r = result->mRules[tt.mBegin];
+  EXPECT_EQ(r.mQuantity, Quantity::ZeroPlus);
+  EXPECT_EQ(r.mType, rjcpt::lex::SequenceRule::Type::RawCharacters);
+  EXPECT_EQ(std::string_view(result->mCharData.c_str() + r.mData, r.mSize), " ");
 }
 
 TEST(LexiconCompiler, DuplicatedQuantity) {

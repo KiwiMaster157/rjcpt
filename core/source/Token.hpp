@@ -1,62 +1,23 @@
 #pragma once
 
-#include <cstdint>
+#include <string_view>
 
-namespace rjcpt
+namespace rjcpt::lex
 {
-   enum class TokenType
-   {
-      // Special tokens
-      EndOfData = 0,
-      Error,
-      Number,
-      Identifier,
-      
-      // Normal operators
-      Plus,
-      Hyphen,
-      Asterisk,
-      Slash,
-      Caret,
-      Comma,
-      Colon,
-      DollarSign,
-      
-      // Grouping tokens
-      LeftParenthesis,
-      RightParenthesis,
-      LeftBracket,
-      RightBracket,
-      LeftBrace,
-      RightBrace,
-      
-      // Comparison tokens
-      Equals,
-      NotEquals,
-      LessThan,
-      LessOrEqual,
-      GreaterThan,
-      GreaterOrEqual,
-
-      // Keyword tokens
-      KeywordAnd,
-      KeywordOr,
-      KeywordNot,
-      KeywordTrue,
-      KeywordFalse,
-
-      // Number of token types.
-      // Useful for sizing static arrays.
-      cMAX_TOKEN
-   };
-   inline constexpr int cNUM_TOKEN_TYPES = static_cast<int>(TokenType::cMAX_TOKEN);
-
-   //! A Token is a sequence of characters that represent an indivisible logical unit in an expression.
-   //! Rather than storing the characters themselves, the Token type stores the start index and length of the substring.
+   //! Represents a substring 
    struct Token
    {
-      TokenType     mType       = TokenType::Error;
-      std::uint32_t mStartIndex = 0;
-      std::uint32_t mLength     = 0;
+      std::string_view Get(std::string_view aText) const
+      {
+         return aText.substr(mPosition, mSize);
+      }
+      void Get(const char*) const = delete;
+
+      friend bool operator==(const Token&, const Token&) noexcept = default;
+
+      std::uint32_t mRow      = 1;
+      std::uint32_t mColumn   = 1;
+      std::uint32_t mPosition = 0;
+      std::uint32_t mSize     = 0;
    };
 }

@@ -81,22 +81,27 @@ TEST(Lexer, EmptyInput)
 
 TEST(Lexer, HelloWorld)
 {
-   const std::string_view input = "Hello World";
+   const std::string_view input = "Hello World123.456  789";
    const auto result = rjcpt::lex::Lexer::LexInput(GetLexicon(), input);
    EXPECT_TRUE(result.IsValid());
-   ASSERT_EQ(result.mTokens.size(), 2);
+   ASSERT_EQ(result.mTokens.size(), 4);
    EXPECT_EQ(result.mTokens[0].Get(input), "Hello");
-   EXPECT_EQ(result.mTokens[1].Get(input), "World");
+   EXPECT_EQ(result.mTokens[1].Get(input), "World123");
+   EXPECT_EQ(result.mTokens[2].Get(input), ".456");
+   EXPECT_EQ(result.mTokens[3].Get(input), "789");
 }
 
 TEST(Lexer, HelloWorld2)
 {
-   const std::string_view input = "Hello World";
+   const std::string_view input = "Hello World123.456  789";
    const auto result = rjcpt::lex::Lexer::LexInput(GetLexicon(), input, rjcpt::lex::Option::KeepIgnored);
    EXPECT_TRUE(result.IsValid());
-   ASSERT_EQ(result.mTokens.size(), 3);
+   ASSERT_EQ(result.mTokens.size(), 6);
    EXPECT_EQ(result.mTokens[0].Get(input), "Hello");
    EXPECT_EQ(result.mTokens[1].Get(input), " ");
-   EXPECT_EQ(result.mTokens[2].Get(input), "World");
+   EXPECT_EQ(result.mTokens[2].Get(input), "World123");
+   EXPECT_EQ(result.mTokens[3].Get(input), ".456");
+   EXPECT_EQ(result.mTokens[4].Get(input), "  ");
+   EXPECT_EQ(result.mTokens[5].Get(input), "789");
 }
 

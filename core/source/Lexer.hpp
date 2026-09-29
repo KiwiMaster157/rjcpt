@@ -22,12 +22,18 @@ namespace rjcpt::lex
       std::uint32_t mPosition = 0;
    };
 
+   struct LexToken : Token
+   {
+      name_t        mTypeName;
+      std::uint32_t mTypeIndex = 0;
+   };
+
    struct LexResult final
    {
       bool IsValid() const { return !mError; }
       operator bool() const { return IsValid(); }
 
-      std::vector<Token> mTokens;
+      std::vector<LexToken> mTokens;
       std::optional<LexError> mError;
    };
 
@@ -49,13 +55,13 @@ namespace rjcpt::lex
 
       //! Returns the next token from mInput; skips ignored tokens depending on
       //! aOption. If there are no more tokens left to read, returns false.
-      bool ReadToken(Token& aOut, Option aOption = Option::DropIgnored);
+      bool ReadToken(LexToken& aOut, Option aOption = Option::DropIgnored);
 
    private:
      //! Returns the next token from mInput, without special handling for
      //! ignored tokens. If there are no more tokens left to read, returns
      //! false.
-      bool ReadTokenP(Token& aOut);
+      bool ReadTokenP(LexToken& aOut);
 
       //! Evaluates whether aRule appears at the start of aInput.
       //! If it does, returns the number of characters the matching substring
@@ -76,7 +82,7 @@ namespace rjcpt::lex
 
       //! Populates aOut with the given kind and size.
       //! Updates mRow, mColumn, and mPosition.
-      bool ExtractToken(Token& aOut, std::uint32_t aKind, std::uint32_t aSize);
+      bool ExtractToken(LexToken& aOut, std::uint32_t aKind, std::uint32_t aSize);
 
       const Lexicon& mLexicon;
       std::string_view mInput;

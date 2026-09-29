@@ -1,6 +1,7 @@
 #pragma once
 
 #include "SmallString.hpp"
+#include "Token.hpp"
 
 #include <bitset>
 #include <cstdint>
@@ -16,24 +17,6 @@ namespace rjcpt::lex
 {
    inline constexpr std::size_t cMAX_NAME = 16;
    using name_t = SmallString<cMAX_NAME>;
-
-   struct Token final
-   {
-      std::string_view Get(std::string_view aData) const
-      {
-         return aData.substr(mPosition, mSize);
-      }
-
-      friend bool operator==(const Token&, const Token&) noexcept = default;
-
-      name_t        mTypeName;
-      std::uint32_t mTypeIndex = 0;
-
-      std::int32_t  mRow = 1;
-      std::int32_t  mColumn = 1;
-      std::uint32_t mPosition = 0;
-      std::uint32_t mSize = 0;
-   };
 
    //! An optimized std::set<char> or std::set<unsigned char>.
    using char_set_t = std::bitset<256>;
@@ -128,6 +111,8 @@ namespace rjcpt::lex
       void Reset();
 
       SequenceRuleData GetRule(std::size_t aIndex) const;
+
+      std::optional<std::uint32_t> FindTokenType(name_t aName) const;
 
       std::vector<CharacterClass> mCharClasses;
       std::vector<Sequence>       mSequences;
