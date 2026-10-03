@@ -14,16 +14,6 @@ namespace rjcpt::lex
    class Grammar;
    
    enum class OutType : std::uint32_t;
-   OutType ToOutType(RuleRef aRule)
-   {
-      return OutType(std::uint32_t(aRule) & 0x3fff'ffff);
-   }
-
-   struct Out
-   {
-      std::uint32_t mIndex = 0;
-      OutType       mType = OutType();
-   };
 
    class RJCPT_CORE_EXPORT Parser
    {
@@ -33,45 +23,20 @@ namespace rjcpt::lex
          Okay, Error, InternalError
       };
 
-      explicit Parser(const Grammar* aGrammar)
-         : mGrammar(aGrammar)
-      {}
       virtual ~Parser() = default;
 
-      Result Parse(std::span<const InType> aIn, name_t aStartup)
-      {
-         auto root = mGrammar->FindRule(aStartup);
-         if (!root)
-         {
-            Error(0, "Internal error. Invalid startup rule: " + aStartup.str());
-            return Result::Error;
-         }
-
-         mStack = { RuleRef::Epsilon, *root };
-         mIndex = 0;
-
-         while (mIndex <= aIn.size())
-         {
-            InType it = (mIndex < aIn.size()) ? aIn[mIndex] : InType::Epsilon;
-            if (ParseP(it) == Result::Error)
-            {
-               return Result::Error;
-            }
-         }
-
-         
-
-         return Result::Okay;
-      }
+      const Grammar* GetGrammar() const { return mGrammar; }
+      bool           IsParsing() const { return !mStack.empty(); }
 
    protected:
       Result Init(const Grammar* aGrammar, name_t aStartup)
       {
          mGrammar = aGrammar;
+         mStack.clear();
          auto root = mGrammar->FindRule(aStartup);
          if (!root)
          {
-            Error(0, "Internal error. Invalid startup rule: " + aStartup.str());
+            Error(0, InType(), "Internal error. Invalid startup rule: " + aStartup.str());
             return Result::InternalError;
          }
          mStack = { RuleRef::MakeInputTerminal(0), *root };
@@ -80,31 +45,12 @@ namespace rjcpt::lex
 
       Result PushInput(std::uint32_t aIndex, InType aValue)
       {
-         if (mStack.empty())
+         std::optional<Result> r;
+         while (!r)
          {
-            Error(aIndex, aValue, "Cannot process any more input.");
-            return Result::InternalError;
+            r = ParseP(aIndex, aValue);
          }
-
-         // TODO: This does not handle the case where multiple tops 
-         const RuleRef top = mStack.back();
-         if (top.IsInputTerminal())
-         {
-
-         }
-         else if (top.IsOutputTerminal())
-         {
-
-         }
-         else if (top.IsNonTerminal())
-         {
-
-         }
-         else
-         {
-            Error(aIndex, aValue, "Unknown error.");
-            return Result::InternalError;
-         }
+         return *r;
       }
 
       Result EndOfInput(std::uint32_t aIndex)
@@ -123,42 +69,42 @@ namespace rjcpt::lex
 
    private:
       //! Returns true to move on to the next input element.
-      Result ParseP(std::uint32_t aIndex, InType aType)
+      std::optional<Result> ParseP(std::uint32_t aIndex, InType aValue)
       {
          if (mStack.empty())
          {
             // TODO: Add indices and values.
-            Error(mIndex, "Cannot process any more input.");
+            Error(aIndex, aValue, "Cannot process any more input.");
             return Result::Error;
          }
          const RuleRef top = mStack.back();
-         if (IsInputTerminal(top))
+         if (top.IsInputTerminal())
          {
-            if (std::to_underlying(aType) == std::to_underlying(top))
+            if (std::to_underlying(aValue) == top.GetValue())
             {
                mStack.pop_back();
-               ++mIndex;
                return Result::Okay;
             }
             else
             {
                // TODO: Add indices and values.
-               Error(mIndex, "Token does not match expected. TODO: Add details.");
+               Error(aIndex, aValue, "Token does not match expected. TODO: Add details.");
                return Result::Error;
             }
          }
-         else if (IsOutputTerminal(top))
+         else if (top.IsOutputTerminal())
          {
             mStack.pop_back();
-            Output(mIndex, ToOutType(top));
+            Output(aIndex, aValue, OutType(top.GetValue()));
+            return std::nullopt;
          }
-         else // is rule
+         else // is non-terminal.
          {
-            const auto rule = GetJump(aType);
+            const auto rule = GetJump(aIndex, aValue);
             if (rule == std::nullopt)
             {
                // TODO: Add indices and values.
-               Error(mIndex, "Token does not fit grammar. TODO: Use Epsilon (with error checking).");
+               Error(aIndex, aValue, "Token does not fit grammar. TODO: Use Epsilon (with error checking).");
                return Result::Error;
             }
 
@@ -169,11 +115,11 @@ namespace rjcpt::lex
                --i;
                mStack.push_back(mGrammar->GetNode(i).mRule);
             }
-            return Result::Okay;
+            return std::nullopt;
          }
       }
 
-      std::optional<GrammarRule> GetJump(InType aNext)
+      std::optional<GrammarRule> GetJump(std::uint32_t aIndex, InType aNext)
       {
          assert(!mStack.empty());
          std::size_t index = mStack.size() - 1;
@@ -190,7 +136,7 @@ namespace rjcpt::lex
                   if (ref)
                   {
                      std::string err = "Warning: Grammar is ambiguous, using " + next->mName.str() + ". TODO: Add details.";
-                     Error(mIndex, aNext, err);
+                     Error(aIndex, aNext, err);
                      break;
                   }
                   else if (!mGrammar->GetJump(mStack[index], InType::Epsilon))

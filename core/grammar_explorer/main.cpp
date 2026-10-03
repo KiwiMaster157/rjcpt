@@ -57,6 +57,7 @@ int main(int aArgc, char** aArgv)
 
       if (grammarText.ends_with("exit()"))
       {
+         std::cout << "\nFound \"exit()\" at end of input file. Terminating program." << std::endl;
          return 0;
       }
       std::this_thread::sleep_for(std::chrono::seconds(1));
