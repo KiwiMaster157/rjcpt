@@ -119,6 +119,8 @@ namespace rjcpt::lex
       std::uint32_t GetJumpIndex(RuleRef aRuleType, InType aInputType) const;
       std::uint32_t GetJumpIndexP(RuleRef aRuleType, std::uint32_t aInputIndex) const;
 
+      std::optional<name_t> FindRuleName(RuleRef aRuleType) const;
+
       std::vector<GrammarRule> mRules;
       std::vector<GrammarNode> mNodes;
       std::vector<InType>      mInputTypes;

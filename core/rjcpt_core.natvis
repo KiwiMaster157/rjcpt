@@ -7,4 +7,7 @@
          <Item Name="[data]">mData._Elems,[$T1]</Item>
       </Expand>
    </Type>
+   <Type Name="rjcpt::lex::RuleRef">
+      <DisplayString>{mType,en} : {mValue}</DisplayString>
+   </Type>
 </AutoVisualizer>

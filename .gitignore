@@ -49,3 +49,5 @@
 
 BUILD/
 INSTALL/
+/CMakePresets.json
+/CMakeUserPresets.json

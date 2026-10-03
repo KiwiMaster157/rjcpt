@@ -7,13 +7,6 @@
 class rjcpt::lex::GrammarCompiler
 {
 public:
-   struct Symbol
-   {
-      RuleRef mRule;
-      Token   mToken;
-   };
-
-   using SymbolTable = rjcpt::FlatMap<lex::name_t, Symbol>;
    using IndexRange = std::pair<std::uint32_t, std::uint32_t>;
 
    enum class RuleStatus : char
@@ -26,16 +19,19 @@ public:
    std::vector<std::string> Compile(std::string_view aDefinition);
 
 private:
+   // These are the major steps, in order, for compiling the grammar.
    void ReadDefinition(std::string_view aDefinition);
    void SortRules();
+   void LinkRules();
+   void FindInputTypes();
    void BuildJumpTable();
 
-   void ReadDeclaration(Token aToken);
-   std::string_view ParseDeclaredName(Token aToken, RuleRef& aOutType);
-   //! Parses aStr as a number.
-   //! Returns npos on failure.
-   std::uint32_t ParseValue(std::string_view aStr);
+   // Helper functions for ReadDefinition().
+   bool ReadDeclaration(Token aToken);
+   RuleRef ReadTerminal(Token aToken);
+   void PushNode(Token aToken, name_t aName, RuleRef aRule);
 
+   // Helper functions for BuildJumpTable().
    void EnsureJumpTableRowDefined(RuleRef aRuleType);
    void BuildRule(std::uint32_t aRuleIndex, RuleRef aRef);
    void SetJump(RuleRef aRuleType, InType aTokenType, std::uint32_t aJump);
@@ -46,13 +42,13 @@ private:
 
    void PushReadError(std::string_view aErrorMessage, Token aToken);
 
-   Grammar& mGrammar;
-   std::string_view mDefinition;
-   SymbolTable mSymbolTable;
+   Grammar&           mGrammar;
+   std::string_view   mDefinition;
    std::vector<Token> mGrammarRuleTokens;
+   std::vector<Token> mGrammarNodeTokens;
 
-   std::vector<RuleRef>    mInProgressStack;
-   std::vector<RuleStatus> mStatusTable;
+   std::vector<RuleRef>       mInProgressStack;
+   std::vector<RuleStatus>    mStatusTable;
    std::vector<std::uint32_t> mRuleRanges;
 
    std::vector<std::string> mErrors;
@@ -65,9 +61,10 @@ rjcpt::lex::GrammarCompiler::GrammarCompiler(Grammar& aGrammar)
 std::vector<std::string> rjcpt::lex::GrammarCompiler::Compile(std::string_view aDefinition)
 {
    mGrammar.Clear();
-   mGrammar.mInputTypes.push_back(InType::Epsilon);
    ReadDefinition(aDefinition);
    SortRules();
+   LinkRules();
+   FindInputTypes();
    BuildJumpTable();
    return std::move(mErrors);
 }
@@ -84,8 +81,7 @@ void rjcpt::lex::GrammarCompiler::ReadDefinition(std::string_view aDefinition)
       std::string_view text = tok.Get(aDefinition);
       if (expectDeclaration)
       {
-         ReadDeclaration(tok);
-         expectDeclaration = false;
+         expectDeclaration = !ReadDeclaration(tok);
       }
       else if (text.contains('='))
       {
@@ -101,9 +97,13 @@ void rjcpt::lex::GrammarCompiler::ReadDefinition(std::string_view aDefinition)
          GrammarRule next;
          next.mName = back.mName;
          next.mBegin = back.mEnd;
-         next.mEnd = next.mBegin;
+         next.mEnd = back.mEnd;
          mGrammar.mRules.push_back(next);
          mGrammarRuleTokens.push_back(tok);
+      }
+      else if (text.starts_with('$') || text.starts_with('&'))
+      {
+         PushNode(tok, text, ReadTerminal(tok));
       }
       else if (text.size() >= lex::cMAX_NAME)
       {
@@ -111,8 +111,7 @@ void rjcpt::lex::GrammarCompiler::ReadDefinition(std::string_view aDefinition)
       }
       else
       {
-         mGrammar.mNodes.emplace_back(text);
-         ++mGrammar.mRules.back().mEnd;
+         PushNode(tok, text, RuleRef());
       }
    }
    if (!expectDeclaration)
@@ -140,7 +139,6 @@ void rjcpt::lex::GrammarCompiler::SortRules()
          if (rule.mName != lastName)
          {
             lastName = rule.mName;
-            mSymbolTable.emplace(rule.mName, Symbol{ RuleRef::MakeNonTerminal(nextRule), mGrammarRuleTokens[i]});
             mRuleRanges.push_back(i);
             ++nextRule;
          }
@@ -148,53 +146,49 @@ void rjcpt::lex::GrammarCompiler::SortRules()
       }
    }
    mRuleRanges.push_back(mGrammar.mRules.size());
-   mSymbolTable.sort();
+   std::ranges::sort(mGrammar.mInputTypes);
+}
 
+void rjcpt::lex::GrammarCompiler::LinkRules()
+{
+   assert(mGrammar.mNodes.size() == mGrammarNodeTokens.size());
+   for (std::size_t i = 0; i < mGrammar.mNodes.size(); i++)
    {
-      auto it = std::ranges::adjacent_find(mSymbolTable, {}, SymbolTable::projection());
-      while (it != mSymbolTable.end())
+      GrammarNode& node = mGrammar.mNodes[i];
+      if (node.mRule == RuleRef())
       {
-         PushReadError("Duplicate input/output rule definition.", (it + 1)->second.mToken);
-         PushReadError("    See previous declaration here:", it->second.mToken);
-         it = std::ranges::adjacent_find(it + 1, mSymbolTable.end(), {}, SymbolTable::projection());
-      }
-   }
-
-   {
-      std::ranges::sort(mGrammar.mInputTypes);
-      auto it = std::ranges::adjacent_find(mGrammar.mInputTypes);
-      while (it != mGrammar.mInputTypes.end())
-      {
-         const auto rule = RuleRef::MakeInputTerminal(std::to_underlying(*it));
-         std::string err = "Duplicate input type values.";
-         for (const auto& sym : mSymbolTable)
+         auto rule = mGrammar.FindRule(node.mName);
+         if (rule)
          {
-            if (sym.second.mRule == rule)
-            {
-               err += std::format("\n   See declaration of {0}. Row {1}, column {2}.", sym.first.view(), sym.second.mToken.mRow, sym.second.mToken.mColumn);
-            }
+            node.mRule = *rule;
          }
-         mErrors.push_back(std::move(err));
-         it = std::ranges::adjacent_find(it + 1, mGrammar.mInputTypes.end());
+         else
+         {
+            PushReadError("Grammar rule does not exist.", mGrammarNodeTokens[i]);
+         }
       }
    }
 }
 
-void rjcpt::lex::GrammarCompiler::BuildJumpTable()
+void rjcpt::lex::GrammarCompiler::FindInputTypes()
 {
-   // Check mNodes for unknown types.
-   for (auto& node : mGrammar.mNodes)
+   assert(mGrammar.mInputTypes.empty());
+   mGrammar.mInputTypes.push_back(InType::Epsilon);
+   for (const auto& node : mGrammar.mNodes)
    {
-      auto it = mSymbolTable.find(node.mName);
-      if (it == mSymbolTable.end())
+      if (node.mRule.IsInputTerminal())
       {
-         mErrors.push_back("Unable to find " + node.mName.str() + ". TODO: Add row/column info by storing a Token in mSymbolTable.");
-      }
-      else
-      {
-         node.mRule = it->second.mRule;
+         mGrammar.mInputTypes.push_back(InType(node.mRule.GetValue()));
       }
    }
+   std::ranges::sort(mGrammar.mInputTypes);
+   auto it = std::ranges::unique(mGrammar.mInputTypes);
+   mGrammar.mInputTypes.erase(it.begin(), it.end());
+}
+
+void rjcpt::lex::GrammarCompiler::BuildJumpTable()
+{
+   assert(mGrammar.mJumpIndices.empty());
 
    // Initialize data structures.
    mStatusTable.resize(mGrammar.mRules.size(), RuleStatus::NotStarted);
@@ -203,113 +197,76 @@ void rjcpt::lex::GrammarCompiler::BuildJumpTable()
    mGrammar.mJumpIndices.resize(mGrammar.mJumpTableRows * mGrammar.mJumpTableColumns, Grammar::npos);
 
    // Ensure jump table fully filled in.
-   for (std::uint32_t i = 0; i < mGrammar.mRules.size(); i++)
+   for (std::uint32_t i = 0; i < mGrammar.mJumpTableRows; i++)
    {
       EnsureJumpTableRowDefined(RuleRef::MakeNonTerminal(i));
       assert(mInProgressStack.empty());
    }
 }
 
-void rjcpt::lex::GrammarCompiler::ReadDeclaration(Token aToken)
+bool rjcpt::lex::GrammarCompiler::ReadDeclaration(Token aToken)
 {
-   RuleRef          ref = RuleRef();
-   std::string_view name = ParseDeclaredName(aToken, ref);
-
-   if (name.empty())
+   std::string_view text = aToken.Get(mDefinition);
+   if (!text.ends_with('=') || text == "=")
    {
       PushReadError("Expected declaration.", aToken);
    }
-   else if (name.size() >= lex::cMAX_NAME)
+   else if (text.size() >= lex::cMAX_NAME)
    {
       PushReadError("Declared name too long.", aToken);
    }
-   else if (ref.IsNonTerminal())
+   else if (text.starts_with('$') || text.starts_with('&'))
+   {
+      PushReadError("Rule cannot start with '$' or '&'.", aToken);
+   }
+   else
    {
       auto& rule = mGrammar.mRules.emplace_back();
-      rule.mName = name;
+      rule.mName = text.substr(0, text.size() - 1);
       rule.mBegin = static_cast<std::uint32_t>(mGrammar.mNodes.size());
       rule.mEnd = rule.mBegin;
       mGrammarRuleTokens.push_back(aToken);
-
-      // Non-terminals are added to the symbol table later.
+      return true;
    }
-   else
-   {
-      if (ref.IsInputTerminal())
-      {
-         mGrammar.mInputTypes.push_back(InType(ref.GetValue()));
-      }
-      mSymbolTable.emplace(name, Symbol{ ref, aToken });
-   }
+   return false;
 }
 
-std::string_view rjcpt::lex::GrammarCompiler::ParseDeclaredName(Token aToken, RuleRef& aOutType)
+rjcpt::lex::RuleRef rjcpt::lex::GrammarCompiler::ReadTerminal(Token aToken)
 {
    std::string_view text = aToken.Get(mDefinition);
-   auto eq = text.find('=');
-   if (eq != std::string_view::npos)
+
+   assert(text.starts_with('$') || text.starts_with('&'));
+   std::uint32_t x;
+   auto result = std::from_chars(text.data() + 1, text.data() + text.size(), x);
+   if (result.ec != std::errc() || result.ptr != text.data() + text.size())
    {
-      const std::string_view name = text.substr(0, eq);
-      const std::uint32_t value = ParseValue(text.substr(eq + 1));
-      if (name.starts_with('$'))
-      {
-         if (value >= 0x4000'0000)
-         {
-            PushReadError("Value too large.", aToken);
-         }
-         aOutType = RuleRef::MakeInputTerminal(value);
-      }
-      else if (name.starts_with('&'))
-      {
-         if (value >= 0x4000'0000)
-         {
-            PushReadError("Value too large.", aToken);
-         }
-         aOutType = RuleRef::MakeOutputTerminal(value);
-      }
-      else
-      {
-         // Just to indicate that this is a non-terminator rule.
-         aOutType = RuleRef::MakeNonTerminal(0);
-      }
-      return name;
+      PushReadError("Cannot read value.", aToken);
    }
-   return std::string_view();
+   else if (x == 0)
+   {
+      PushReadError("Cannot have a terminal of value 0.", aToken);
+   }
+   else if (x > 0x4000'0000)
+   {
+      PushReadError("Value too large.", aToken);
+   }
+   else if (text.starts_with('$'))
+   {
+      return RuleRef::MakeInputTerminal(x);
+   }
+   else if (text.starts_with('&'))
+   {
+      return RuleRef::MakeOutputTerminal(x);
+   }
+   return RuleRef();
 }
 
-std::uint32_t rjcpt::lex::GrammarCompiler::ParseValue(std::string_view aStr)
+void rjcpt::lex::GrammarCompiler::PushNode(Token aToken, name_t aName, RuleRef aRule)
 {
-   auto readBase = [](std::string_view sv, int b)
-      {
-         std::uint32_t x;
-         auto result = std::from_chars(sv.data(), sv.data() + sv.size(), x);
-         if (result.ec == std::errc() && result.ptr == sv.data() + sv.size())
-         {
-            return x;
-         }
-         return Grammar::npos;
-      };
-
-   if (aStr.empty())
-   {
-      return Grammar::npos;
-   }
-   else if (aStr.starts_with("0x"))
-   {
-      return readBase(aStr.substr(2), 16);
-   }
-   else if (aStr.starts_with("0b"))
-   {
-      return readBase(aStr.substr(2), 2);
-   }
-   else if (aStr.starts_with('0'))
-   {
-      return readBase(aStr, 8);
-   }
-   else
-   {
-      return readBase(aStr, 10);
-   }
+   assert(mGrammar.mNodes.size() == mGrammarNodeTokens.size());
+   mGrammar.mNodes.push_back(GrammarNode{ .mName = aName, .mRule = aRule });
+   ++mGrammar.mRules.back().mEnd;
+   mGrammarNodeTokens.push_back(aToken);
 }
 
 void rjcpt::lex::GrammarCompiler::EnsureJumpTableRowDefined(RuleRef aRuleType)
@@ -317,8 +274,19 @@ void rjcpt::lex::GrammarCompiler::EnsureJumpTableRowDefined(RuleRef aRuleType)
    RuleStatus& status = GetStatus(aRuleType);
    if (status == RuleStatus::InProgress)
    {
-      // TODO: error message should indicate what the circular definition is.
-      mErrors.push_back("Circular rule definition. TODO: more details in error message.");
+      Token t = mGrammarRuleTokens.at(aRuleType.GetValue());
+      std::string err = std::format("Circular rule definition for {} defined at row {}, column {}.",
+                                    t.Get(mDefinition), t.mRow, t.mColumn);
+      for (RuleRef rule : std::views::reverse(mInProgressStack))
+      {
+         t = mGrammarRuleTokens.at(rule.GetValue());
+         err += std::format(" Required from...\n   {} defined at row {}, column {}.", t.Get(mDefinition), t.mRow, t.mColumn);
+         if (rule == aRuleType)
+         {
+            break;
+         }
+      }
+      mErrors.push_back(err);
    }
    else if (status == RuleStatus::NotStarted)
    {
@@ -349,16 +317,22 @@ void rjcpt::lex::GrammarCompiler::BuildRule(std::uint32_t aRuleIndex, RuleRef aR
       if (node.mRule.IsInputTerminal())
       {
          SetJump(aRef, static_cast<InType>(node.mRule.GetValue()), i);
+         return;
       }
       else if (node.mRule.IsNonTerminal())
       {
          EnsureJumpTableRowDefined(node.mRule);
 
-         for (std::uint32_t t = 0; t < mGrammar.mInputTypes.size(); t++)
+         // Skip over t=0, aka the epsilon rule.
+         for (std::uint32_t t = 1; t < mGrammar.mInputTypes.size(); t++)
          {
-            SetJumpP(aRef, t, mGrammar.GetJumpIndexP(node.mRule, t));
+            std::uint32_t jumpIndex = mGrammar.GetJumpIndexP(node.mRule, t);
+            if (jumpIndex != Grammar::npos)
+            {
+               SetJumpP(aRef, t, jumpIndex);
+            }
          }
-         if (mGrammar.GetJumpIndex(node.mRule, InType::Epsilon) != Grammar::npos)
+         if (mGrammar.GetJumpIndex(node.mRule, InType::Epsilon) == Grammar::npos)
          {
             return;
          }
@@ -373,17 +347,25 @@ void rjcpt::lex::GrammarCompiler::SetJump(RuleRef aRuleType, InType aTokenType, 
    SetJumpP(aRuleType, index, aJump);
 }
 
-void rjcpt::lex::GrammarCompiler::SetJumpP(RuleRef aRuleType, std::uint32_t aTokenIndex, std::uint32_t aJump)
+void rjcpt::lex::GrammarCompiler::SetJumpP(RuleRef aRuleType, std::uint32_t aInputIndex, std::uint32_t aJump)
 {
-   assert(aTokenIndex < mGrammar.mJumpIndices.size());
-   if (mGrammar.mJumpIndices[aTokenIndex] != Grammar::npos)
+   const std::uint32_t ruleIndex = aRuleType.GetValue();
+
+   assert(aRuleType.IsNonTerminal());
+   assert(ruleIndex < mGrammar.mJumpTableRows);
+   assert(aInputIndex < mGrammar.mJumpTableColumns);
+   const std::uint32_t tableIndex = ruleIndex * mGrammar.mJumpTableColumns + aInputIndex;
+
+   if (mGrammar.mJumpIndices[tableIndex] != Grammar::npos)
    {
-      // TODO: error message should indicate which rule and which token caused the error.
-      mErrors.push_back("Cannot set jump index. TODO: indicate rule and token type.");
+      name_t        name = mGrammar.FindRuleName(aRuleType).value_or("<error>");
+      std::uint32_t input = static_cast<std::uint32_t>(mGrammar.mInputTypes[aInputIndex]);
+      std::string   err = std::format("FIRST/FIRST ambiguity for rule '{}', input {}.", name.view(), input);
+      mErrors.push_back(err);
    }
    else
    {
-      mGrammar.mJumpIndices[aTokenIndex] = aJump;
+      mGrammar.mJumpIndices[tableIndex] = aJump;
    }
 }
 
@@ -474,4 +456,20 @@ std::uint32_t rjcpt::lex::Grammar::GetJumpIndexP(RuleRef aRuleType, std::uint32_
    const std::uint32_t tableIndex = ruleIndex * mJumpTableColumns + aInputIndex;
    assert(tableIndex < mJumpIndices.size());
    return mJumpIndices[tableIndex];
+}
+
+std::optional<rjcpt::lex::name_t> rjcpt::lex::Grammar::FindRuleName(RuleRef aRuleType) const
+{
+   assert(aRuleType.IsNonTerminal());
+   auto cmp = [](const GrammarRule& aRule)
+      {
+         assert(aRule.mRef.IsNonTerminal());
+         return aRule.mRef.GetValue();
+      };
+   auto it = std::ranges::lower_bound(mRules, aRuleType.GetValue(), {}, cmp);
+   if (it != mRules.end() && it->mRef == aRuleType)
+   {
+      return it->mName;
+   }
+   return std::nullopt;
 }
