@@ -329,7 +329,7 @@ void rjcpt::lex::GrammarCompiler::BuildRule(std::uint32_t aRuleIndex, RuleRef aR
             std::uint32_t jumpIndex = mGrammar.GetJumpIndexP(node.mRule, t);
             if (jumpIndex != Grammar::npos)
             {
-               SetJumpP(aRef, t, jumpIndex);
+               SetJumpP(aRef, t, i);
             }
          }
          if (mGrammar.GetJumpIndex(node.mRule, InType::Epsilon) == Grammar::npos)
@@ -409,6 +409,29 @@ std::optional<rjcpt::lex::GrammarRule> rjcpt::lex::Grammar::GetJump(RuleRef aRul
    return std::nullopt;
 }
 
+std::optional<rjcpt::lex::GrammarRule> rjcpt::lex::Grammar::GetJumpP(RuleRef aRuleType, std::uint32_t aInputIndex) const
+{
+   if (aInputIndex < mJumpTableColumns)
+   {
+      const std::uint32_t jumpIndex = GetJumpIndexP(aRuleType, aInputIndex);
+      if (jumpIndex < mRules.size())
+      {
+         return mRules[jumpIndex];
+      }
+   }
+   return std::nullopt;
+}
+
+std::uint32_t rjcpt::lex::Grammar::GetInputTypeIndex(InType aType) const
+{
+   auto it = std::ranges::lower_bound(mInputTypes, aType);
+   if (it != mInputTypes.end() && *it == aType)
+   {
+      return static_cast<std::uint32_t>(it - mInputTypes.begin());
+   }
+   return npos;
+}
+
 rjcpt::lex::GrammarNode rjcpt::lex::Grammar::GetNode(std::uint32_t aNode) const
 {
    return mNodes.at(aNode);
@@ -428,16 +451,6 @@ std::optional<rjcpt::lex::RuleRef> rjcpt::lex::Grammar::FindRule(name_t aName) c
 void rjcpt::lex::Grammar::Clear()
 {
    *this = Grammar();
-}
-
-std::uint32_t rjcpt::lex::Grammar::GetInputTypeIndex(InType aType) const
-{
-   auto it = std::ranges::lower_bound(mInputTypes, aType);
-   if (it != mInputTypes.end() && *it == aType)
-   {
-      return static_cast<std::uint32_t>(it - mInputTypes.begin());
-   }
-   return npos;
 }
 
 std::uint32_t rjcpt::lex::Grammar::GetJumpIndex(RuleRef aRuleType, InType aInputType) const

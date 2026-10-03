@@ -98,6 +98,16 @@ namespace rjcpt::lex
       //! @param aInputType The type of the next input token.
       std::optional<GrammarRule> GetJump(RuleRef aRuleType, InType aInputType) const;
 
+      //! @brief Returns the GrammarRule that the parser should jump to for the given top rule and input type index.
+      //! @param aRuleType The rule on top of the parse stack.
+      //! @param aInputIndex The index of the next input token type.
+      //! @note  Using GetJump is preferred, but this function can be used to bypass input type lookup.
+      std::optional<GrammarRule> GetJumpP(RuleRef aRuleType, std::uint32_t aInputIndex) const;
+
+      //! Converts aType to the index used in the jump table.
+      //! Returns npos on failure.
+      std::uint32_t GetInputTypeIndex(InType aInputType) const;
+
       //! Returns the node at the given index.
       //! Throws on failure.
       GrammarNode GetNode(std::uint32_t aNode) const;
@@ -111,9 +121,6 @@ namespace rjcpt::lex
    private:
       friend class GrammarCompiler;
 
-      //! Converts aType to the index used in the jump table.
-      std::uint32_t GetInputTypeIndex(InType aType) const;
-
       //! Returns the index (of mRules) that the parser should jump to for the given top rule type and current input type.
       //! Returns npos on failure.
       std::uint32_t GetJumpIndex(RuleRef aRuleType, InType aInputType) const;
@@ -125,6 +132,13 @@ namespace rjcpt::lex
       std::vector<GrammarNode> mNodes;
       std::vector<InType>      mInputTypes;
 
+      // The jump table.
+      // Each row corresponds to a differently-named rule.
+      //    Multiple rules can share a name. All rules with the same name appear on the same row.
+      // Each column corresponds to a different input type.
+      //    The column of an input type is the same as that type's index in mInputTypes.
+      // Column 0 is reserved for the "epsilon" value, which has special meaning.
+      // The stored values are indices into the mRules vector, or npos to mean "no value".
       std::vector<std::uint32_t> mJumpIndices;
       std::uint32_t mJumpTableRows = 0;
       std::uint32_t mJumpTableColumns = 0;
