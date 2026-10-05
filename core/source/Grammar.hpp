@@ -89,9 +89,14 @@ namespace rjcpt::lex
    public:
       static constexpr std::uint32_t npos = 0xffffffff;
 
+      struct CompileOptions
+      {
+         std::optional<unsigned int> maxInput;
+      };
+
       //! Compiles a grammar definition string.
       //! Returns any errors that occurred in the process.
-      std::vector<std::string> Compile(std::string_view aDefinition);
+      std::vector<std::string> Compile(std::string_view aDefinition, CompileOptions aOptions = {});
       
       //! @brief Returns the GrammarRule that the parser should jump to for the given top rule type and input type.
       //! @param aRuleType The rule on top of the parse stack.
@@ -102,7 +107,7 @@ namespace rjcpt::lex
       //! @param aRuleType The rule on top of the parse stack.
       //! @param aInputIndex The index of the next input token type.
       //! @note  Using GetJump is preferred, but this function can be used to bypass input type lookup.
-      std::optional<GrammarRule> GetJumpP(RuleRef aRuleType, std::uint32_t aInputIndex) const;
+      std::optional<GrammarRule> GetQuickJump(RuleRef aRuleType, std::uint32_t aInputIndex) const;
 
       //! Converts aType to the index used in the jump table.
       //! Returns npos on failure.
@@ -115,6 +120,10 @@ namespace rjcpt::lex
       //! Finds and returns the RuleRef for the given name.
       std::optional<RuleRef> FindRule(name_t aName) const;
 
+      //! Finds and returns the name of the given rule ref.
+      //! Returns nullopt if it does not exist.
+      std::optional<name_t> FindRuleName(RuleRef aRuleType) const;
+
       //! Returns the Grammar to its initial state.
       void Clear();
 
@@ -125,8 +134,6 @@ namespace rjcpt::lex
       //! Returns npos on failure.
       std::uint32_t GetJumpIndex(RuleRef aRuleType, InType aInputType) const;
       std::uint32_t GetJumpIndexP(RuleRef aRuleType, std::uint32_t aInputIndex) const;
-
-      std::optional<name_t> FindRuleName(RuleRef aRuleType) const;
 
       std::vector<GrammarRule> mRules;
       std::vector<GrammarNode> mNodes;

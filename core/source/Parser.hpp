@@ -15,6 +15,8 @@ namespace rjcpt::lex
    
    enum class OutType : std::uint32_t;
 
+   //! Abstract base class for LL(1) parsers.
+   //! Derived classes should override Output() and Error().
    class RJCPT_CORE_EXPORT Parser
    {
    public:
@@ -23,131 +25,54 @@ namespace rjcpt::lex
          Okay, Error, InternalError
       };
 
+      explicit Parser(const Grammar* aGrammar);
       virtual ~Parser() = default;
 
       const Grammar* GetGrammar() const { return mGrammar; }
       bool           IsParsing() const { return !mStack.empty(); }
 
    protected:
-      Result Init(const Grammar* aGrammar, name_t aStartup)
-      {
-         mGrammar = aGrammar;
-         mStack.clear();
-         auto root = mGrammar->FindRule(aStartup);
-         if (!root)
-         {
-            Error(0, InType(), "Internal error. Invalid startup rule: " + aStartup.str());
-            return Result::InternalError;
-         }
-         mStack = { RuleRef::MakeInputTerminal(0), *root };
-         return Result::Okay;
-      }
+      //! @brief Prepares the parser to parse a new input.
+      //! @param aGrammar The grammar to use for parsing. aGrammar must be properly compiled.
+      //! @param aStartup The entry point rule.
+      //! @return Whether the parser was able to initialize successfully.
+      Result Init(RuleRef aStartup);
 
-      Result PushInput(std::uint32_t aIndex, InType aValue)
-      {
-         std::optional<Result> r;
-         while (!r)
-         {
-            r = ParseP(aIndex, aValue);
-         }
-         return *r;
-      }
+      //! @brief Precesses a single input token.
+      //! @param aIndex The input index forwarded to Output and Error.
+      //! @param aValue The type of input token.
+      //! @return Whether an error occurred.
+      Result PushInput(std::uint32_t aIndex, InType aValue);
 
-      Result EndOfInput(std::uint32_t aIndex)
-      {
-         const Result r = PushInput(aIndex, InType::Epsilon);
-         if (r == Result::Okay && !mStack.empty())
-         {
-            Error(aIndex, InType::Epsilon, "Unexpected end of input.");
-            return Result::Error;
-         }
-         return r;
-      }
+      //! @brief Called to indicate that the input is finished.
+      //! @param aIndex The input index forwarded to Output and Error.
+      //! @return Whether an error occurred.
+      Result EndOfInput(std::uint32_t aIndex);
 
+      //! @brief Called by PushInput or EndOfInput when an output callback is encountered in the grammar.
+      //! @param aIndex The index passed to PushInput or EndOfInput.
+      //! @param aValue The valued passed to PushInput, or InType::Epislon (0) if EndOfInput is called.
+      //! @param aType The output type as defined in the grammar.
       virtual void Output(std::uint32_t aIndex, InType aValue, OutType aType) = 0;
+
+      //! @brief Called by PushInput or EndOfInput when an error occurs while processing an input token.
+      //! @param aIndex The index passed to PushInput or EndOfInput.
+      //! @param aValue The value passed to PushInput, or InType::Epsilon (0) if EndOfInput is called.
+      //! @param aError An error string.
       virtual void Error(std::uint32_t aIndex, InType aValue, const std::string& aError) = 0;
 
    private:
-      //! Returns true to move on to the next input element.
-      std::optional<Result> ParseP(std::uint32_t aIndex, InType aValue)
-      {
-         if (mStack.empty())
-         {
-            // TODO: Add indices and values.
-            Error(aIndex, aValue, "Cannot process any more input.");
-            return Result::Error;
-         }
-         const RuleRef top = mStack.back();
-         if (top.IsInputTerminal())
-         {
-            if (std::to_underlying(aValue) == top.GetValue())
-            {
-               mStack.pop_back();
-               return Result::Okay;
-            }
-            else
-            {
-               // TODO: Add indices and values.
-               Error(aIndex, aValue, "Token does not match expected. TODO: Add details.");
-               return Result::Error;
-            }
-         }
-         else if (top.IsOutputTerminal())
-         {
-            mStack.pop_back();
-            Output(aIndex, aValue, OutType(top.GetValue()));
-            return std::nullopt;
-         }
-         else // is non-terminal.
-         {
-            const auto rule = GetJump(aIndex, aValue);
-            if (rule == std::nullopt)
-            {
-               // TODO: Add indices and values.
-               Error(aIndex, aValue, "Token does not fit grammar. TODO: Use Epsilon (with error checking).");
-               return Result::Error;
-            }
+      //! @brief Applies aValue to the top of the parser stack.
+      //! @param aIndex The index to be forwarded to Output/Error.
+      //! @param aValue The value being input.
+      //! @return The parse result if complete, or nullopt if the function needs to be called again.
+      std::optional<Result> ParseP(std::uint32_t aIndex, InType aValue);
 
-            mStack.pop_back();
-            std::uint32_t i = rule->mEnd;
-            while (i > rule->mBegin)
-            {
-               --i;
-               mStack.push_back(mGrammar->GetNode(i).mRule);
-            }
-            return std::nullopt;
-         }
-      }
-
-      std::optional<GrammarRule> GetJump(std::uint32_t aIndex, InType aNext)
-      {
-         assert(!mStack.empty());
-         std::size_t index = mStack.size() - 1;
-         auto next = mGrammar->GetJump(mStack[index], aNext);
-         if (!next)
-         {
-            next = mGrammar->GetJump(mStack[index], InType::Epsilon);
-            if (next)
-            {
-               while (index > 0)
-               {
-                  --index;
-                  auto ref = mGrammar->GetJump(mStack[index], aNext);
-                  if (ref)
-                  {
-                     std::string err = "Warning: Grammar is ambiguous, using " + next->mName.str() + ". TODO: Add details.";
-                     Error(aIndex, aNext, err);
-                     break;
-                  }
-                  else if (!mGrammar->GetJump(mStack[index], InType::Epsilon))
-                  {
-                     break;
-                  }
-               }
-            }
-         }
-         return next;
-      }
+      //! @brief Returns the next GrammarRule to jump to. Automatically applies fallthrough.
+      //! @param aIndex The index to be forwarded to Error if necessary.
+      //! @param aNext The value being input.
+      //! @return The GrammarRule on success, or nullopt on failure.
+      std::optional<GrammarRule> GetJump(std::uint32_t aIndex, InType aNext);
 
       std::vector<RuleRef> mStack;
       const Grammar* mGrammar = nullptr;

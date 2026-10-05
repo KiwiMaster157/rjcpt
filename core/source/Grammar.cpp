@@ -16,13 +16,14 @@ public:
 
    GrammarCompiler(Grammar& aGrammar);
 
-   std::vector<std::string> Compile(std::string_view aDefinition);
+   std::vector<std::string> Compile(std::string_view aDefinition, Grammar::CompileOptions aOptions);
 
 private:
    // These are the major steps, in order, for compiling the grammar.
    void ReadDefinition(std::string_view aDefinition);
    void SortRules();
    void LinkRules();
+   void SetInputTypes(unsigned int aMaxInput);
    void FindInputTypes();
    void BuildJumpTable();
 
@@ -58,13 +59,20 @@ rjcpt::lex::GrammarCompiler::GrammarCompiler(Grammar& aGrammar)
    : mGrammar(aGrammar)
 {}
 
-std::vector<std::string> rjcpt::lex::GrammarCompiler::Compile(std::string_view aDefinition)
+std::vector<std::string> rjcpt::lex::GrammarCompiler::Compile(std::string_view aDefinition, Grammar::CompileOptions aOptions)
 {
    mGrammar.Clear();
    ReadDefinition(aDefinition);
    SortRules();
    LinkRules();
-   FindInputTypes();
+   if (aOptions.maxInput)
+   {
+      SetInputTypes(*aOptions.maxInput);
+   }
+   else
+   {
+      FindInputTypes();
+   }
    BuildJumpTable();
    return std::move(mErrors);
 }
@@ -170,6 +178,29 @@ void rjcpt::lex::GrammarCompiler::LinkRules()
    }
 }
 
+void rjcpt::lex::GrammarCompiler::SetInputTypes(unsigned int aMaxInput)
+{
+   assert(mGrammar.mInputTypes.empty());
+   assert(mGrammar.mNodes.size() == mGrammarNodeTokens.size());
+   for (std::size_t i = 0; i < mGrammar.mNodes.size(); i++)
+   {
+      const GrammarNode& node = mGrammar.mNodes[i];
+      const auto         value = node.mRule.GetValue();
+      if (node.mRule.IsInputTerminal() && value > aMaxInput)
+      {
+         std::string err = std::format("Input terminal value ({}) is greater than maximum ({}).", value, aMaxInput);
+         PushReadError(err, mGrammarNodeTokens[i]);
+      }
+   }
+
+   const std::uint32_t max = aMaxInput;
+   mGrammar.mInputTypes.resize(max + 1);
+   for (std::uint32_t i = 0; i <= max; i++)
+   {
+      mGrammar.mInputTypes[i] = InType(i);
+   }
+}
+
 void rjcpt::lex::GrammarCompiler::FindInputTypes()
 {
    assert(mGrammar.mInputTypes.empty());
@@ -181,6 +212,7 @@ void rjcpt::lex::GrammarCompiler::FindInputTypes()
          mGrammar.mInputTypes.push_back(InType(node.mRule.GetValue()));
       }
    }
+
    std::ranges::sort(mGrammar.mInputTypes);
    auto it = std::ranges::unique(mGrammar.mInputTypes);
    mGrammar.mInputTypes.erase(it.begin(), it.end());
@@ -316,7 +348,7 @@ void rjcpt::lex::GrammarCompiler::BuildRule(std::uint32_t aRuleIndex, RuleRef aR
       const auto& node = mGrammar.mNodes[i];
       if (node.mRule.IsInputTerminal())
       {
-         SetJump(aRef, static_cast<InType>(node.mRule.GetValue()), i);
+         SetJump(aRef, static_cast<InType>(node.mRule.GetValue()), aRuleIndex);
          return;
       }
       else if (node.mRule.IsNonTerminal())
@@ -329,7 +361,7 @@ void rjcpt::lex::GrammarCompiler::BuildRule(std::uint32_t aRuleIndex, RuleRef aR
             std::uint32_t jumpIndex = mGrammar.GetJumpIndexP(node.mRule, t);
             if (jumpIndex != Grammar::npos)
             {
-               SetJumpP(aRef, t, i);
+               SetJumpP(aRef, t, aRuleIndex);
             }
          }
          if (mGrammar.GetJumpIndex(node.mRule, InType::Epsilon) == Grammar::npos)
@@ -393,10 +425,10 @@ void rjcpt::lex::GrammarCompiler::PushReadError(std::string_view aErrorMessage, 
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-std::vector<std::string> rjcpt::lex::Grammar::Compile(std::string_view aDefinition)
+std::vector<std::string> rjcpt::lex::Grammar::Compile(std::string_view aDefinition, CompileOptions aOptions)
 {
    GrammarCompiler c(*this);
-   return c.Compile(aDefinition);
+   return c.Compile(aDefinition, aOptions);
 }
 
 std::optional<rjcpt::lex::GrammarRule> rjcpt::lex::Grammar::GetJump(RuleRef aRuleType, InType aInputType) const
@@ -409,7 +441,7 @@ std::optional<rjcpt::lex::GrammarRule> rjcpt::lex::Grammar::GetJump(RuleRef aRul
    return std::nullopt;
 }
 
-std::optional<rjcpt::lex::GrammarRule> rjcpt::lex::Grammar::GetJumpP(RuleRef aRuleType, std::uint32_t aInputIndex) const
+std::optional<rjcpt::lex::GrammarRule> rjcpt::lex::Grammar::GetQuickJump(RuleRef aRuleType, std::uint32_t aInputIndex) const
 {
    if (aInputIndex < mJumpTableColumns)
    {
@@ -448,6 +480,22 @@ std::optional<rjcpt::lex::RuleRef> rjcpt::lex::Grammar::FindRule(name_t aName) c
    return std::nullopt;
 }
 
+std::optional<rjcpt::lex::name_t> rjcpt::lex::Grammar::FindRuleName(RuleRef aRuleType) const
+{
+   assert(aRuleType.IsNonTerminal());
+   auto cmp = [](const GrammarRule& aRule)
+      {
+         assert(aRule.mRef.IsNonTerminal());
+         return aRule.mRef.GetValue();
+      };
+   auto it = std::ranges::lower_bound(mRules, aRuleType.GetValue(), {}, cmp);
+   if (it != mRules.end() && it->mRef == aRuleType)
+   {
+      return it->mName;
+   }
+   return std::nullopt;
+}
+
 void rjcpt::lex::Grammar::Clear()
 {
    *this = Grammar();
@@ -469,20 +517,4 @@ std::uint32_t rjcpt::lex::Grammar::GetJumpIndexP(RuleRef aRuleType, std::uint32_
    const std::uint32_t tableIndex = ruleIndex * mJumpTableColumns + aInputIndex;
    assert(tableIndex < mJumpIndices.size());
    return mJumpIndices[tableIndex];
-}
-
-std::optional<rjcpt::lex::name_t> rjcpt::lex::Grammar::FindRuleName(RuleRef aRuleType) const
-{
-   assert(aRuleType.IsNonTerminal());
-   auto cmp = [](const GrammarRule& aRule)
-      {
-         assert(aRule.mRef.IsNonTerminal());
-         return aRule.mRef.GetValue();
-      };
-   auto it = std::ranges::lower_bound(mRules, aRuleType.GetValue(), {}, cmp);
-   if (it != mRules.end() && it->mRef == aRuleType)
-   {
-      return it->mName;
-   }
-   return std::nullopt;
 }
