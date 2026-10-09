@@ -24,6 +24,11 @@ namespace rjcpt::lex
       {
          Okay, Error, InternalError
       };
+      struct ParseOptions
+      {
+         bool checkFirstFollow = true;
+         bool useQuickJump = false;
+      };
 
       explicit Parser(const Grammar* aGrammar);
       virtual ~Parser() = default;
@@ -36,7 +41,7 @@ namespace rjcpt::lex
       //! @param aGrammar The grammar to use for parsing. aGrammar must be properly compiled.
       //! @param aStartup The entry point rule.
       //! @return Whether the parser was able to initialize successfully.
-      Result Init(RuleRef aStartup);
+      Result Init(RuleRef aStartup, ParseOptions aOptions = {});
 
       //! @brief Precesses a single input token.
       //! @param aIndex The input index forwarded to Output and Error.
@@ -76,5 +81,6 @@ namespace rjcpt::lex
 
       std::vector<RuleRef> mStack;
       const Grammar* mGrammar = nullptr;
+      ParseOptions   mOptions;
    };
 }

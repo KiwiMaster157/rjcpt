@@ -6,10 +6,15 @@ rjcpt::lex::Parser::Parser(const Grammar* aGrammar)
    : mGrammar(aGrammar)
 {}
 
-rjcpt::lex::Parser::Result rjcpt::lex::Parser::Init(RuleRef aStartup)
+rjcpt::lex::Parser::Result rjcpt::lex::Parser::Init(RuleRef aStartup, ParseOptions aOptions)
 {
    mStack.clear();
    mStack = { RuleRef::MakeInputTerminal(0), aStartup };
+   mOptions = aOptions;
+   if (mOptions.useQuickJump)
+   {
+      // TODO: Check mGrammar for if quick jump is valid.
+   }
    return Result::Okay;
 }
 
@@ -96,9 +101,10 @@ std::optional<rjcpt::lex::GrammarRule> rjcpt::lex::Parser::GetJump(std::uint32_t
 {
    assert(!mStack.empty());
    std::size_t index = mStack.size() - 1;
+   // TODO: Use GetQuickJump if applicable.
    auto next = mGrammar->GetJump(mStack[index], aNext);
    auto ifEps = mGrammar->GetJump(mStack[index], InType::Epsilon);
-   if (next && ifEps && false)
+   if (mOptions.checkFirstFollow && next && ifEps)
    {
       while (index > 0)
       {

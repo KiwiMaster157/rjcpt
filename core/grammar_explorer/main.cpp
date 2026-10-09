@@ -1,5 +1,5 @@
 #include "Grammar.hpp"
-#include "Parser.hpp"
+#include "CharacterParser.hpp"
 
 #include <cstdlib>
 #include <fstream>
@@ -11,86 +11,24 @@ struct TestToken : rjcpt::lex::Token
    int mType = -1;
 };
 
-class TestCharacterParser : public rjcpt::lex::Parser
+class TestCharacterParser : public rjcpt::lex::CharacterParser
 {
 public:
    explicit TestCharacterParser(const rjcpt::lex::Grammar* aGrammar, std::ostream& aOutStream)
-      : rjcpt::lex::Parser(aGrammar)
+      : rjcpt::lex::CharacterParser(aGrammar)
       , mOutStream(aOutStream)
    {}
 
-   std::vector<rjcpt::lex::Token> ParseString(std::string_view aString)
-   {
-      mText = aString;
-      mTokens.clear();
-      mCurrentToken = TestToken();
-
-      auto r = GetGrammar()->FindRule("ENTRY");
-      if (!r)
-      {
-         mOutStream << "ERROR: No grammar rule named ENTRY." << std::endl;
-         return {};
-      }
-      Init(*r);
-      for (std::uint32_t i = 0; i < mText.size(); i++)
-      {
-         PushInput(i, rjcpt::lex::InType(mText[i]));
-      }
-      EndOfInput(mText.size());
-
-      mText = std::string_view();
-
-      return std::move(mTokens);
-   }
-
 protected:
-   void Output(std::uint32_t aIndex, rjcpt::lex::InType aValue, rjcpt::lex::OutType aOut) override
+   void EmitToken(rjcpt::lex::Token aToken, rjcpt::lex::OutType aType) override
    {
-      const auto cb = std::to_underlying(aOut);
-      if (mCurrentToken.mType >= 0)
-      {
-         if (cb >= 1000)
-         {
-            mOutStream << "ERROR: " << aIndex << " " << std::to_underlying(aValue) << ": Unexpected start-of-token." << std::endl;
-         }
-         else
-         {
-            if (mCurrentToken.mType != 0 && mCurrentToken.mType != cb)
-            {
-               mOutStream << "ERROR: " << aIndex << " " << std::to_underlying(aValue)
-                  << ": Token type (" << cb << ") does not match expected (" << mCurrentToken.mType << ")." << std::endl;
-            }
-
-            mCurrentToken.mSize = aIndex - mCurrentToken.mPosition;
-            mOutStream << "TOKEN: " << cb << " " << mCurrentToken.Get(mText) << std::endl;
-            mCurrentToken.mType = -1;
-            mTokens.push_back(mCurrentToken);
-         }
-      }
-      else
-      {
-         if (cb >= 1000)
-         {
-            mCurrentToken.mPosition = aIndex;
-            mCurrentToken.mType     = cb - 1000;
-         }
-         else
-         {
-            mOutStream << "ERROR: " << aIndex << " " << std::to_underlying(aValue) << ": Unexpected end-of-token." << std::endl;
-         }
-      }
-   }
-   void Error(std::uint32_t aIndex, rjcpt::lex::InType aValue, const std::string& aError) override
-   {
-      mOutStream << "ERROR: " << aIndex << " " << std::to_underlying(aValue) << ": " << aError << std::endl;
+      mOutStream << "TOKEN: " << aToken.Get(mText)
+         << " (" << (int) aType << ") line " << aToken.mRow
+         << " column " << aToken.mColumn << std::endl;
    }
 
 private:
    std::ostream& mOutStream;
-   std::string_view mText;
-
-   std::vector<rjcpt::lex::Token> mTokens;
-   TestToken mCurrentToken;
 };
 
 int main(int aArgc, char** aArgv)
@@ -154,7 +92,11 @@ int main(int aArgc, char** aArgv)
          inputFile.close();
 
          TestCharacterParser tcp(&g, fout);
-         tcp.ParseString(inputText);
+         auto error = tcp.ParseText(inputText, g.FindRule("ENTRY").value());
+         if (!error.empty())
+         {
+            fout << "ERROR: " << error << std::endl;
+         }
       }
 
       fout.close();

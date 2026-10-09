@@ -113,6 +113,10 @@ void rjcpt::lex::GrammarCompiler::ReadDefinition(std::string_view aDefinition)
       {
          PushNode(tok, text, ReadTerminal(tok));
       }
+      else if (text.size() == 3 && text[0] == '\'' && text[2] == '\'')
+      {
+         PushNode(tok, text, RuleRef::MakeInputTerminal(static_cast<unsigned char>(text[1])));
+      }
       else if (text.size() >= lex::cMAX_NAME)
       {
          PushReadError("Name too long.", tok);

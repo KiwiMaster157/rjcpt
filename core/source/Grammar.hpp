@@ -12,8 +12,7 @@ namespace rjcpt::lex
 {
    using lex::name_t;
    
-   // TODO: Turn RuleRef into a struct, remove dangerous casts.
-   class RuleRef
+   class RuleRef final
    {
    public:
       enum class Type : std::uint32_t

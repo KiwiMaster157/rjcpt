@@ -1,4 +1,5 @@
 set(rjcpt_core_SRCS
+   source/CharacterParser.cpp
    source/Grammar.cpp
    source/Lexer.cpp
    source/Lexicon.cpp
@@ -8,6 +9,7 @@ set(rjcpt_core_SRCS
    )
 
 set(rjcpt_core_HDRS
+   source/CharacterParser.hpp
    source/FlatMap.hpp
    source/Grammar.hpp
    source/Lexer.hpp
