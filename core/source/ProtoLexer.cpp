@@ -15,8 +15,9 @@ std::vector<rjcpt::lex::Token> rjcpt::lex::ProtoLexer::LexInput(std::string_view
    return retval;
 }
 
-rjcpt::lex::ProtoLexer::ProtoLexer(std::string_view aText)
+rjcpt::lex::ProtoLexer::ProtoLexer(std::string_view aText, std::uint32_t aRow)
    : mText(aText)
+   , mRow(aRow)
 {}
 
 bool rjcpt::lex::ProtoLexer::ReadToken(Token& aToken)

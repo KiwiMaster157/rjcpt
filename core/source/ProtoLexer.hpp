@@ -25,7 +25,8 @@ namespace rjcpt::lex
 
       //! @brief Initializes a lexer to stream tokens from aText with the given settings.
       //! @param aText The text to parse. It is the user's responsibility to ensure this remains valid for the lifetime of the lexer.
-      explicit ProtoLexer(std::string_view aText);
+      //! @param aRow The index of the starting line. Generally one, but may be something else when lexing a subset of a larger string.
+      explicit ProtoLexer(std::string_view aText, std::uint32_t aRow = 1);
 
       //! @brief Reads into aToken.
       //!        Stops reading once the first of the separator characters is read.
