@@ -2,7 +2,8 @@
 
 #include <rjcpt_core_export.h>
 
-#include <iosfwd>
+#include "Token.hpp"
+
 #include <span>
 #include <string>
 #include <utility>
@@ -15,20 +16,28 @@ namespace rjcpt::core
    public:
       struct value_type
       {
-         std::string   key;
-         std::string   value;
-         std::uint32_t line = 0;
+         std::string       section;
+         rjcpt::lex::Token key;
+         rjcpt::lex::Token value;
       };
-      
-      IniReader(std::istream& aInput);
 
-      static std::vector<value_type> Read(std::istream& aInput);
+      explicit IniReader(std::string aInput);
+
+      static std::vector<value_type> Read(std::string aInput);
 
       bool ReadValue(value_type& aOut);
 
+      std::string_view GetInput() const { return mInput; }
+      const std::string& GetInputRef() const { return mInput; }
+
    private:
-      std::istream& mInput;
-      std::string   mPrefix;
+      bool GetLine(rjcpt::lex::Token& aLine);
+      void StripWhitespace(rjcpt::lex::Token& aToken) const;
+      void Normalize(rjcpt::lex::Token& aToken) const;
+
+      std::string   mInput;
+      std::string   mSection;
+      std::uint32_t mPosition = 0;
       std::uint32_t mLine = 0;
    };
 

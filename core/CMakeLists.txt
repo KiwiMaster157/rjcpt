@@ -1,9 +1,8 @@
 set(rjcpt_core_SRCS
    source/CharacterParser.cpp
    source/Grammar.cpp
-   source/Lexer.cpp
-   source/Lexicon.cpp
-   source/LexiconCompiler.cpp
+   source/GrammarCompiler.cpp
+   source/IniReader.cpp
    source/Parser.cpp
    source/ProtoLexer.cpp
    )
@@ -12,9 +11,9 @@ set(rjcpt_core_HDRS
    source/CharacterParser.hpp
    source/FlatMap.hpp
    source/Grammar.hpp
-   source/Lexer.hpp
-   source/Lexicon.hpp
-   source/LexiconCompiler.hpp
+   source/GrammarCompiler.hpp
+   source/GrammarUtils.hpp
+   source/IniReader.hpp
    source/Parser.hpp
    source/ProtoLexer.hpp
    source/SmallString.hpp
